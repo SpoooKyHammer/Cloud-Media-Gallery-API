@@ -32,5 +32,5 @@ coverage/
 tmp/
 temp/
 
- data/
- minio_data/
+data/
+minio_data/
