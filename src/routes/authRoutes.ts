@@ -18,9 +18,7 @@ router.post('/refresh-token', validate(validateRefreshToken), authController.ref
 router.get('/me', authenticate, (req: AuthRequest, res) => {
   res.json({
     success: true,
-    data: {
-      user: req.user,
-    },
+    data: req.user,
   });
 });
 
