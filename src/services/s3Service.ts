@@ -17,7 +17,6 @@ interface UploadFileParams {
 
 interface UploadResponse {
   key: string;
-  url: string;
 }
 
 class S3Service {
@@ -27,6 +26,10 @@ class S3Service {
     this.bucket = config.aws.s3Bucket;
   }
 
+  /**
+   * Uploads a file to S3/MinIO storage.
+   * Returns the storage key for database persistence.
+   */
   async uploadFile({ buffer, filename, mimeType, folder = 'uploads' }: UploadFileParams): Promise<UploadResponse> {
     const ext = filename.split('.').pop() || '';
     const uniqueFilename = `${uuidv4()}${ext ? '.' + ext : ''}`;
@@ -41,11 +44,12 @@ class S3Service {
 
     await s3Client.send(command);
 
-    const url = `https://${this.bucket}.s3.${config.aws.region}.amazonaws.com/${key}`;
-
-    return { key, url };
+    return { key };
   }
 
+  /**
+   * Deletes a file from S3/MinIO storage.
+   */
   async deleteFile(key: string): Promise<void> {
     const command = new DeleteObjectCommand({
       Bucket: this.bucket,
@@ -55,6 +59,10 @@ class S3Service {
     await s3Client.send(command);
   }
 
+  /**
+   * Generates a presigned URL for temporary file access.
+   * URL expires after the specified duration.
+   */
   async getPresignedUrl(key: string, expiresIn: number = 3600): Promise<string> {
     const command = new GetObjectCommand({
       Bucket: this.bucket,

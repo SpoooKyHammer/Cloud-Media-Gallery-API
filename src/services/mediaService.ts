@@ -18,15 +18,25 @@ interface GetMediaParams {
   userId: string;
 }
 
+interface MediaWithUrl {
+  _id: string;
+  user_id: string;
+  media_type: 'image' | 'video';
+  file_url: string;
+  is_favorite: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 class MediaService {
   /**
-   * Uploads a media file to S3 and creates a database record.
-   * File type validation is handled by multer middleware.
+   * Uploads a media file to S3/MinIO and creates a database record.
+   * Stores the file key for presigned URL generation on retrieval.
    */
   async uploadMedia({ buffer, filename, mimeType, userId }: UploadMediaParams): Promise<IMedia> {
     const mediaType: 'image' | 'video' = mimeType.startsWith('image/') ? 'image' : 'video';
 
-    const { key, url } = await s3Service.uploadFile({
+    const { key } = await s3Service.uploadFile({
       buffer,
       filename,
       mimeType,
@@ -36,7 +46,7 @@ class MediaService {
     const media = await Media.create({
       user_id: new Types.ObjectId(userId),
       media_type: mediaType,
-      file_url: url,
+      file_key: key,
       is_favorite: false,
     });
 
@@ -45,8 +55,9 @@ class MediaService {
 
   /**
    * Gets paginated media files for a user.
+   * Enriches each media item with a presigned URL for file access.
    */
-  async getMedia({ page, limit, userId }: GetMediaParams): Promise<PaginatedResponse<IMedia>> {
+  async getMedia({ page, limit, userId }: GetMediaParams): Promise<PaginatedResponse<MediaWithUrl>> {
     const skip = (page - 1) * limit;
 
     const [items, total] = await Promise.all([
@@ -58,8 +69,11 @@ class MediaService {
       Media.countDocuments({ user_id: new Types.ObjectId(userId) }),
     ]);
 
+    // Enrich with presigned URLs
+    const itemsWithUrls = await this.enrichWithPresignedUrls(items);
+
     return {
-      data: items,
+      data: itemsWithUrls,
       pagination: {
         page,
         limit,
@@ -71,8 +85,9 @@ class MediaService {
 
   /**
    * Gets paginated favorite media files for a user.
+   * Enriches each media item with a presigned URL for file access.
    */
-  async getFavorites(params: GetMediaParams): Promise<PaginatedResponse<IMedia>> {
+  async getFavorites(params: GetMediaParams): Promise<PaginatedResponse<MediaWithUrl>> {
     const { page, limit, userId } = params;
     const skip = (page - 1) * limit;
 
@@ -91,8 +106,11 @@ class MediaService {
       }),
     ]);
 
+    // Enrich with presigned URLs
+    const itemsWithUrls = await this.enrichWithPresignedUrls(items);
+
     return {
-      data: items,
+      data: itemsWithUrls,
       pagination: {
         page,
         limit,
@@ -100,6 +118,25 @@ class MediaService {
         totalPages: Math.ceil(total / limit),
       },
     };
+  }
+
+  /**
+   * Enriches media items with presigned URLs.
+   */
+  private async enrichWithPresignedUrls(items: IMedia[]): Promise<MediaWithUrl[]> {
+    const urls = await Promise.all(
+      items.map((item) => s3Service.getPresignedUrl(item.file_key, 3600))
+    );
+
+    return items.map((item, index) => ({
+      _id: item._id.toString(),
+      user_id: item.user_id.toString(),
+      media_type: item.media_type,
+      file_url: urls[index],
+      is_favorite: item.is_favorite,
+      createdAt: item.createdAt,
+      updatedAt: item.updatedAt,
+    }));
   }
 
   /**
@@ -138,7 +175,7 @@ class MediaService {
   }
 
   /**
-   * Deletes a media file from S3 and database.
+   * Deletes a media file from S3/MinIO and database.
    */
   async deleteMedia(mediaId: string, userId: string): Promise<void> {
     const media = await Media.findOne({
@@ -150,8 +187,7 @@ class MediaService {
       throw new AppError('Media file not found', 404);
     }
 
-    const key = media.file_url.split('/').slice(-2).join('/');
-    await s3Service.deleteFile(key);
+    await s3Service.deleteFile(media.file_key);
     await Media.deleteOne({ _id: media._id });
   }
 }
