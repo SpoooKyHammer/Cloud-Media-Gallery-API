@@ -71,13 +71,13 @@ class AuthService {
     const user = await User.findOne({ email }).select('+passwordHash');
 
     if (!user) {
-      throw new AppError('Invalid email or password', 401);
+      throw new AppError('Invalid email or password', 404);
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
 
     if (!isPasswordValid) {
-      throw new AppError('Invalid email or password', 401);
+      throw new AppError('Invalid email or password', 404);
     }
 
     const tokens = this.generateTokenPair(user._id.toString(), user.email);
@@ -102,7 +102,7 @@ class AuthService {
       const user = await User.findById(payload.userId);
 
       if (!user) {
-        throw new AppError('User not found', 401);
+        throw new AppError('User not found', 404);
       }
 
       return this.generateTokenPair(user._id.toString(), user.email);
