@@ -3,6 +3,7 @@ import { Request, Response, NextFunction } from 'express';
 import { AuthRequest } from '../middlewares/auth';
 import mediaService from '../services/mediaService';
 import { ApiResponse } from '../types/index';
+import { AppError } from '../middlewares/errorHandler';
 
 class MediaController {
   /**
@@ -11,7 +12,12 @@ class MediaController {
    */
   async uploadMedia(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { buffer, originalname, mimetype } = req.file!;
+      if (!req.file) {
+        next(new AppError('File is required', 400));
+        return;
+      }
+
+      const { buffer, originalname, mimetype } = req.file;
       const userId = req.user!._id.toString();
 
       const media = await mediaService.uploadMedia({

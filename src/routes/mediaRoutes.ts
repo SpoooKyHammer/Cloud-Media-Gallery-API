@@ -5,7 +5,6 @@ import mediaController from '../controllers/mediaController';
 import { authenticate } from '../middlewares/auth';
 import { validate } from '../middlewares/validation';
 import {
-  validateUpload,
   validateGetMedia,
   validateGetFavorites,
   validateToggleFavorite,
@@ -18,7 +17,7 @@ const router = Router();
 router.use(authenticate);
 
 // POST /media/upload - Upload a media file
-router.post('/upload', validate(validateUpload), upload.single('file'), mediaController.uploadMedia);
+router.post('/upload', upload.single('file'), mediaController.uploadMedia);
 
 // GET /media - Get paginated media files
 router.get('/', validate(validateGetMedia), mediaController.getMedia);

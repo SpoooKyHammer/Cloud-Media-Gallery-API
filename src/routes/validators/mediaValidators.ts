@@ -1,14 +1,4 @@
-import { body, param, query } from 'express-validator';
-
-export const validateUpload = [
-  body('file')
-    .custom((_, { req }) => {
-      if (!req.file) {
-        throw new Error('File is required');
-      }
-      return true;
-    }),
-];
+import { param, query } from 'express-validator';
 
 export const validateGetMedia = [
   query('page')
