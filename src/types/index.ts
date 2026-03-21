@@ -1,13 +1,9 @@
-export interface MediaFile {
-  _id?: string;
-  filename: string;
-  originalName: string;
-  mimeType: string;
-  size: number;
-  s3Key: string;
-  s3Url: string;
-  presignedUrl?: string;
-  uploadedBy?: string;
+export interface Media {
+  _id: string;
+  user_id: string;
+  media_type: 'image' | 'video';
+  file_url: string;
+  is_favorite: boolean;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -26,7 +22,7 @@ export interface ApiResponse<T = any> {
 }
 
 export interface PaginatedResponse<T = any> {
-  data: T[];
+  data?: T[];
   pagination: {
     page: number;
     limit: number;
