@@ -54,6 +54,35 @@ class MediaService {
   }
 
   /**
+   * Uploads multiple media files to S3/MinIO and creates database records.
+   * Returns media items enriched with presigned URLs.
+   */
+  async uploadMultipleMedia(files: Express.Multer.File[], userId: string): Promise<MediaWithUrl[]> {
+    const uploadPromises = files.map(async (file) => {
+      const mediaType: 'image' | 'video' = file.mimetype.startsWith('image/') ? 'image' : 'video';
+
+      const { key } = await s3Service.uploadFile({
+        buffer: file.buffer,
+        filename: file.originalname,
+        mimeType: file.mimetype,
+        folder: 'media',
+      });
+
+      return Media.create({
+        user_id: new Types.ObjectId(userId),
+        media_type: mediaType,
+        file_key: key,
+        is_favorite: false,
+      });
+    });
+
+    const mediaItems = await Promise.all(uploadPromises);
+
+    // Enrich with presigned URLs
+    return this.enrichWithPresignedUrls(mediaItems);
+  }
+
+  /**
    * Gets paginated media files for a user.
    * Enriches each media item with a presigned URL for file access.
    */

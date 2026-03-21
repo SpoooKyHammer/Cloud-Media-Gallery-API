@@ -8,29 +8,26 @@ import { AppError } from '../middlewares/errorHandler';
 class MediaController {
   /**
    * POST /media/upload
-   * Upload a media file (image/video).
+   * Upload one or multiple media files (images/videos).
    */
   async uploadMedia(req: AuthRequest, res: Response, next: NextFunction): Promise<void> {
     try {
-      if (!req.file) {
+      const files = req.files as Express.Multer.File[];
+      
+      if (!files || files.length === 0) {
         next(new AppError('File is required', 400));
         return;
       }
 
-      const { buffer, originalname, mimetype } = req.file;
       const userId = req.user!._id.toString();
 
-      const media = await mediaService.uploadMedia({
-        buffer,
-        filename: originalname,
-        mimeType: mimetype,
-        userId,
-      });
+      // Upload all files and get media items with presigned URLs
+      const mediaItems = await mediaService.uploadMultipleMedia(files, userId);
 
       const response: ApiResponse = {
         success: true,
-        message: 'File uploaded successfully',
-        data: media,
+        message: `${mediaItems.length} file(s) uploaded successfully`,
+        data: mediaItems,
       };
 
       res.status(201).json(response);
